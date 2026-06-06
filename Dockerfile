@@ -22,6 +22,9 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Install dashboard dependencies
+RUN cd dashboard && npm install
+
 # Build the NestJS API
 RUN npm run build
 
