@@ -25,15 +25,27 @@ export class AuthService implements OnModuleInit {
     let displayKey: string;
     let isNewKey = false;
 
-    if (count === 0) {
-      // Use predictable key in development, random key in production
-      displayKey =
-        process.env.NODE_ENV === 'production' ? `owa_k1_${randomBytes(32).toString('hex')}` : 'dev-admin-key';
+    // If API_MASTER_KEY is set, ensure it always exists and is active in the DB
+    if (process.env.API_MASTER_KEY) {
+      const masterKey = process.env.API_MASTER_KEY;
+      const masterHash = this.hashKey(masterKey);
+      const existing = await this.apiKeyRepository.findOne({ where: { keyHash: masterHash } });
+      if (!existing) {
+        await this.seedApiKey(masterKey, 'Master Key', ApiKeyRole.ADMIN);
+        isNewKey = count === 0;
+      } else if (!existing.isActive) {
+        existing.isActive = true;
+        await this.apiKeyRepository.save(existing);
+      }
+      displayKey = masterKey;
+    } else if (count === 0) {
+      displayKey = process.env.NODE_ENV === 'production'
+        ? `owa_k1_${randomBytes(32).toString('hex')}`
+        : 'dev-admin-key';
 
       await this.seedApiKey(displayKey, 'Default Admin Key', ApiKeyRole.ADMIN);
       isNewKey = true;
 
-      // Save raw key to file for startup script to read
       try {
         writeFileSync(API_KEY_FILE, displayKey, 'utf-8');
       } catch (err) {
