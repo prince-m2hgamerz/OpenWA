@@ -22,8 +22,11 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the NestJS API
 RUN npm run build
+
+# Build the dashboard
+RUN npm run dashboard:build
 
 # ===== Stage 2: Production =====
 FROM node:22-slim AS production
@@ -66,8 +69,14 @@ COPY package*.json ./
 # Install production dependencies only
 RUN npm install --omit=dev && npm cache clean --force
 
-# Copy built application from builder stage
+# Install serve to host the dashboard static files
+RUN npm install -g serve
+
+# Copy built API from builder stage
 COPY --from=builder /app/dist ./dist
+
+# Copy built dashboard from builder stage
+COPY --from=builder /app/dashboard/dist ./dashboard/dist
 
 # Create data directories with proper permissions
 RUN mkdir -p ./data/sessions ./data/media && \
@@ -77,8 +86,9 @@ RUN mkdir -p ./data/sessions ./data/media && \
 # For production with stricter security, consider using a Docker socket proxy
 # USER openwa
 
-# Expose port
+# Expose API port and dashboard port
 EXPOSE 2785
+EXPOSE 2886
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
@@ -86,4 +96,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # Start with dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/main"]
+CMD ["sh", "-c", "node dist/main & serve -s dashboard/dist -l 2886 & wait"]
