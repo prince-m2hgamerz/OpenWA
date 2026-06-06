@@ -99,4 +99,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # Start with dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "node dist/main & serve -s dashboard/dist -l 2886 & wait"]
+CMD ["sh", "-c", "node dist/main & serve -s /app/dashboard/dist -l 2886 & wait"]
