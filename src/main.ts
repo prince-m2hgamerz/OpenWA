@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ShutdownService } from './common/services/shutdown.service';
@@ -65,7 +66,7 @@ STORAGE_PATH=./data/media
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Enable shutdown hooks for graceful shutdown
   app.enableShutdownHooks();
@@ -83,7 +84,7 @@ async function bootstrap() {
         directives: {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'https:'],
           connectSrc: ["'self'"],
           fontSrc: ["'self'"],
@@ -123,6 +124,19 @@ async function bootstrap() {
     exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
     maxAge: 86400, // 24 hours
   });
+
+  // Serve dashboard static files on the same port
+  const dashboardDist = path.resolve(process.cwd(), 'dashboard', 'dist');
+  if (fs.existsSync(dashboardDist)) {
+    app.useStaticAssets(dashboardDist);
+    app.use((req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
+      if (!req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
+        res.sendFile(path.join(dashboardDist, 'index.html'));
+      } else {
+        next();
+      }
+    });
+  }
 
   // Global prefix
   app.setGlobalPrefix('api');
